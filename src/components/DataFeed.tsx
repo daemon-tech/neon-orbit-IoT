@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNetworkStore, NetworkNode, NetworkLink } from '../store/networkStore'
+import { useDraggable } from '../hooks/useDraggable'
 
 interface FeedItem {
   id: string
@@ -16,6 +17,13 @@ export const DataFeed = () => {
   const [feedItems, setFeedItems] = useState<FeedItem[]>([])
   const [isExpanded, setIsExpanded] = useState(true)
   const feedRef = useRef<HTMLDivElement>(null)
+
+  // Draggable functionality
+  const [initialPos] = useState(() => ({
+    x: typeof window !== 'undefined' ? window.innerWidth - 400 : 500, // right side minus width
+    y: typeof window !== 'undefined' ? window.innerHeight - 500 : 200, // Account for tab height (400px)
+  }))
+  const { position, isDragging, elementRef, handleMouseDown } = useDraggable(initialPos)
 
   useEffect(() => {
     const nodes = getAllNodes()
@@ -120,36 +128,56 @@ export const DataFeed = () => {
   }
 
   return (
-    <div className="fixed bottom-10 right-10 z-50 w-96">
+    <div
+      ref={elementRef}
+      className="fixed z-50 w-96 select-none"
+      style={{
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        opacity: isDragging ? 0.8 : 1,
+        cursor: isDragging ? 'grabbing' : 'default',
+      }}
+    >
       <div className="data-panel rounded-lg overflow-hidden">
         <div
-          className="px-4 py-3 border-b border-tech-border cursor-pointer flex items-center justify-between"
-          onClick={() => setIsExpanded(!isExpanded)}
+          className="px-4 py-3 border-b border-tech-border flex items-center justify-between cursor-move"
+          onMouseDown={handleMouseDown}
         >
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-tech-primary rounded-full animate-pulse" />
-            <h3 className="text-sm font-semibold text-tech-text uppercase tracking-wide">
+            <h3 className="text-sm font-semibold text-tech-text uppercase tracking-wide font-mono">
               Live Data Feed
             </h3>
             <span className="text-xs text-tech-text-muted">
               ({feedItems.length})
             </span>
           </div>
-          <svg
-            className={`w-4 h-4 text-tech-text-muted transition-transform ${
-              isExpanded ? 'rotate-180' : ''
-            }`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-tech-text-muted hover:text-tech-primary transition-colors">⋮⋮</div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsExpanded(!isExpanded)
+              }}
+              className="text-tech-text-muted hover:text-tech-text transition-colors"
+            >
+              <svg
+                className={`w-4 h-4 transition-transform ${
+                  isExpanded ? 'rotate-180' : ''
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <AnimatePresence>
@@ -167,7 +195,7 @@ export const DataFeed = () => {
                 style={{ scrollbarWidth: 'thin' }}
               >
                 {feedItems.length === 0 ? (
-                  <div className="text-center text-tech-text-muted text-sm py-8">
+                  <div className="text-center text-tech-text-muted text-sm py-8 font-mono">
                     No recent activity
                   </div>
                 ) : (
@@ -184,15 +212,15 @@ export const DataFeed = () => {
                       <div className="flex items-start justify-between mb-1">
                         <div className="flex items-center gap-2">
                           <span>{getTypeIcon(item.type)}</span>
-                          <span className={`font-semibold ${getTypeColor(item.type)}`}>
+                          <span className={`font-semibold font-mono ${getTypeColor(item.type)}`}>
                             {item.type.toUpperCase()}
                           </span>
                         </div>
-                        <span className="text-tech-text-muted text-xs">
+                        <span className="text-tech-text-muted text-xs font-mono">
                           {formatTime(item.timestamp)}
                         </span>
                       </div>
-                      <div className="text-tech-text-muted space-y-0.5">
+                      <div className="text-tech-text-muted space-y-0.5 font-mono">
                         {item.type === 'packet' && (
                           <>
                             <div className="font-mono text-tech-text">
@@ -241,4 +269,3 @@ function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`
 }
-

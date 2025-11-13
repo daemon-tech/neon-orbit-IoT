@@ -10,7 +10,7 @@ import * as THREE from 'three'
 import { useNetworkStore } from '../store/networkStore'
 import { EARTH_RADIUS, latLngToVector3 } from './Earth'
 
-const MAX_INSTANCES = 500000
+const MAX_INSTANCES = 10000 // Reduced from 500000 for performance
 const LOD_DISTANCE = 5 // Distance threshold for LOD
 
 export const CommandSphere = () => {

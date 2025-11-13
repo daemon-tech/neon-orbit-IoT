@@ -9,12 +9,15 @@ import { LiveStats } from './components/LiveStats'
 import { ThreatMap } from './components/ThreatMap'
 import { ThreatFeed } from './components/ThreatFeed'
 import { DataFeed } from './components/DataFeed'
+import { ASViewToggle } from './components/ASViewToggle'
+import { CommandPanel } from './components/CommandPanel'
+import { TabSystem } from './components/TabSystem'
+import { useTabStore } from './store/tabStore'
 import { usePacketCapture } from './hooks/usePacketCapture'
 import { useBGPStream } from './hooks/useBGPStream'
 import { useDNSFeed } from './hooks/useDNSFeed'
 import { useNetworkSeed } from './hooks/useNetworkSeed'
 import { useAbyssMesh } from './hooks/useAbyssMesh'
-import { useNetworkStore } from './store/networkStore'
 
 function Scene() {
   return (
@@ -52,12 +55,15 @@ function App() {
   useNetworkSeed()
 
   // ABYSS MESH v2 - High-performance telemetry processing
-  const { addEvent: addTelemetryEvent } = useAbyssMesh(true)
+  useAbyssMesh(true)
 
   // Start data feeds (legacy - can be migrated to useAbyssMesh)
   usePacketCapture(true)
   useBGPStream(true)
   useDNSFeed(true)
+
+  // Tab store
+  const { tabs, activeTabId, setActiveTab, closeTab } = useTabStore()
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-tech-bg">
@@ -70,11 +76,20 @@ function App() {
         </Suspense>
       </Canvas>
 
+      <CommandPanel />
       <ThreatMap />
       <ThreatFeed />
       <DataFeed />
       <NodeInspector />
       <LiveStats />
+      
+      {/* Tab System */}
+      <TabSystem
+        tabs={tabs}
+        activeTabId={activeTabId}
+        onTabChange={setActiveTab}
+        onTabClose={closeTab}
+      />
 
       {/* Top Bar - Military Command Interface */}
       <div className="fixed top-0 left-0 right-0 z-50 glass-panel border-b border-tech-border">
@@ -96,6 +111,8 @@ function App() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <ASViewToggle />
+            <div className="h-4 w-px bg-tech-border" />
             <div className="text-xs text-tech-text-muted font-mono">
               PROTOCOL: TCP/UDP/ICMP | BGP | DNS
             </div>
