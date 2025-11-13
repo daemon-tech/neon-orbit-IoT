@@ -1,0 +1,36 @@
+{
+  "name": "neon-orbit",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Cyberpunk Real-Time 3D IoT Globe Dashboard",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@react-three/fiber": "^8.15.11",
+    "@react-three/drei": "^9.88.13",
+    "@react-three/postprocessing": "^2.15.11",
+    "three": "^0.158.0",
+    "zustand": "^4.4.7",
+    "mqtt": "^5.3.1",
+    "tone": "^14.7.77",
+    "framer-motion": "^10.16.16",
+    "gsap": "^3.12.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@types/three": "^0.158.3",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.3.6",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8"
+  }
+}
+
