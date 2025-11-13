@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
 import { useNetworkStore } from '../store/networkStore'
-import { spawn, ChildProcess } from 'child_process'
 
 interface PacketData {
   src: string
@@ -14,132 +13,25 @@ interface PacketData {
 
 export const usePacketCapture = (enabled: boolean = true) => {
   const { addNode, addLink, updateNode, updateLink, getAllNodes } = useNetworkStore()
-  const processRef = useRef<ChildProcess | null>(null)
-  const bufferRef = useRef<string>('')
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (!enabled) {
-      if (processRef.current) {
-        processRef.current.kill()
-        processRef.current = null
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
       }
       return
     }
 
-    // Check if tshark is available
-    const checkTshark = spawn('which', ['tshark'])
-    checkTshark.on('close', (code) => {
-      if (code !== 0) {
-        console.warn('tshark not found. Using mock data mode.')
-        startMockCapture()
-        return
-      }
-
-      startRealCapture()
-    })
-
-    const startRealCapture = () => {
-      try {
-        // Real tshark capture
-        const proc = spawn('tshark', [
-          '-i', 'any',
-          '-f', 'tcp or udp or icmp',
-          '-T', 'json',
-          '-e', 'frame.time_epoch',
-          '-e', 'ip.src',
-          '-e', 'ip.dst',
-          '-e', 'tcp.srcport',
-          '-e', 'tcp.dstport',
-          '-e', 'udp.srcport',
-          '-e', 'udp.dstport',
-          '-e', 'ip.proto',
-          '-e', 'frame.len',
-          '-l' // Line buffered
-        ], {
-          stdio: ['ignore', 'pipe', 'pipe']
-        })
-
-        processRef.current = proc
-
-        proc.stdout.on('data', (data: Buffer) => {
-          bufferRef.current += data.toString()
-          const lines = bufferRef.current.split('\n')
-          bufferRef.current = lines.pop() || ''
-
-          lines.forEach((line) => {
-            if (!line.trim()) return
-            try {
-              const packet = JSON.parse(line)
-              processPacket(packet)
-            } catch (e) {
-              // Skip invalid JSON
-            }
-          })
-        })
-
-        proc.stderr.on('data', (data: Buffer) => {
-          console.error('tshark error:', data.toString())
-        })
-
-        proc.on('close', (code) => {
-          console.log('tshark process closed:', code)
-        })
-      } catch (error) {
-        console.error('Failed to start tshark:', error)
-        startMockCapture()
-      }
-    }
-
-    const startMockCapture = () => {
-      // Mock packet generation for development
-      const interval = setInterval(() => {
-        const nodes = getAllNodes()
-        if (nodes.length < 2) return
-
-        const src = nodes[Math.floor(Math.random() * nodes.length)]
-        const dst = nodes[Math.floor(Math.random() * nodes.length)]
-        
-        if (src.id === dst.id) return
-
-        const packet: PacketData = {
-          src: src.ip,
-          dst: dst.ip,
-          srcPort: Math.floor(Math.random() * 65535),
-          dstPort: [80, 443, 53, 22, 3389][Math.floor(Math.random() * 5)],
-          protocol: ['tcp', 'udp'][Math.floor(Math.random() * 2)],
-          size: Math.floor(Math.random() * 1500) + 64,
-          time: Date.now() / 1000,
-        }
-
-        processPacket({ layers: mockPacketToLayers(packet) })
-      }, 100) // 10 packets/sec mock rate
-
-      return () => clearInterval(interval)
-    }
-
-    const mockPacketToLayers = (pkt: PacketData) => ({
-      'frame.time_epoch': [pkt.time.toString()],
-      'ip.src': [pkt.src],
-      'ip.dst': [pkt.dst],
-      [`${pkt.protocol}.srcport`]: pkt.srcPort ? [pkt.srcPort.toString()] : undefined,
-      [`${pkt.protocol}.dstport`]: pkt.dstPort ? [pkt.dstPort.toString()] : undefined,
-      'ip.proto': [pkt.protocol === 'tcp' ? '6' : pkt.protocol === 'udp' ? '17' : '1'],
-      'frame.len': [pkt.size.toString()],
-    })
-
-    const processPacket = (packet: any) => {
-      const layers = packet.layers || packet
-      if (!layers['ip.src'] || !layers['ip.dst']) return
-
-      const srcIp = layers['ip.src'][0]
-      const dstIp = layers['ip.dst'][0]
-      const srcPort = layers['tcp.srcport']?.[0] || layers['udp.srcport']?.[0]
-      const dstPort = layers['tcp.dstport']?.[0] || layers['udp.dstport']?.[0]
-      const protoNum = layers['ip.proto']?.[0] || '6'
-      const size = parseInt(layers['frame.len']?.[0] || '0')
-      const time = parseFloat(layers['frame.time_epoch']?.[0] || Date.now().toString())
-
-      const protocol = protoNum === '6' ? 'tcp' : protoNum === '17' ? 'udp' : 'icmp'
+    const processPacket = (pkt: PacketData) => {
+      const srcIp = pkt.src
+      const dstIp = pkt.dst
+      const srcPort = pkt.srcPort
+      const dstPort = pkt.dstPort
+      const protocol = pkt.protocol
+      const size = pkt.size
+      const time = pkt.time
 
       // Ensure nodes exist
       ensureNode(srcIp)
@@ -160,8 +52,8 @@ export const usePacketCapture = (enabled: boolean = true) => {
           id: linkId,
           source: srcIp,
           target: dstIp,
-          srcPort: srcPort ? parseInt(srcPort) : undefined,
-          dstPort: dstPort ? parseInt(dstPort) : undefined,
+          srcPort: srcPort,
+          dstPort: dstPort,
           protocol,
           bytes: size,
           packets: 1,
@@ -170,17 +62,63 @@ export const usePacketCapture = (enabled: boolean = true) => {
       }
 
       // Update node stats
-      updateNode(srcIp, {
-        packets: (useNetworkStore.getState().nodes.get(srcIp)?.packets || 0) + 1,
-        bytes: (useNetworkStore.getState().nodes.get(srcIp)?.bytes || 0) + size,
-        lastSeen: time,
-      })
+      const srcNode = useNetworkStore.getState().nodes.get(srcIp)
+      const dstNode = useNetworkStore.getState().nodes.get(dstIp)
+      const now = Math.floor(time / 3600) * 3600 // Round to hour
+      
+      if (srcNode) {
+        const topPorts = [...(srcNode.topPorts || [])]
+        if (srcPort && !topPorts.includes(srcPort)) {
+          topPorts.push(srcPort)
+          topPorts.sort((a, b) => b - a)
+          topPorts.splice(5) // Keep top 5
+        }
+        
+        const packetHistory = [...(srcNode.packetHistory || [])]
+        const historyEntry = packetHistory.find((p) => p.time === now)
+        if (historyEntry) {
+          historyEntry.count += 1
+        } else {
+          packetHistory.push({ time: now, count: 1 })
+          packetHistory.sort((a, b) => a.time - b.time)
+          packetHistory.splice(-24) // Keep last 24 hours
+        }
+        
+        updateNode(srcIp, {
+          packets: srcNode.packets + 1,
+          bytes: srcNode.bytes + size,
+          lastSeen: time,
+          topPorts,
+          packetHistory,
+        })
+      }
 
-      updateNode(dstIp, {
-        packets: (useNetworkStore.getState().nodes.get(dstIp)?.packets || 0) + 1,
-        bytes: (useNetworkStore.getState().nodes.get(dstIp)?.bytes || 0) + size,
-        lastSeen: time,
-      })
+      if (dstNode) {
+        const topPorts = [...(dstNode.topPorts || [])]
+        if (dstPort && !topPorts.includes(dstPort)) {
+          topPorts.push(dstPort)
+          topPorts.sort((a, b) => b - a)
+          topPorts.splice(5) // Keep top 5
+        }
+        
+        const packetHistory = [...(dstNode.packetHistory || [])]
+        const historyEntry = packetHistory.find((p) => p.time === now)
+        if (historyEntry) {
+          historyEntry.count += 1
+        } else {
+          packetHistory.push({ time: now, count: 1 })
+          packetHistory.sort((a, b) => a.time - b.time)
+          packetHistory.splice(-24) // Keep last 24 hours
+        }
+        
+        updateNode(dstIp, {
+          packets: dstNode.packets + 1,
+          bytes: dstNode.bytes + size,
+          lastSeen: time,
+          topPorts,
+          packetHistory,
+        })
+      }
     }
 
     const ensureNode = (ip: string) => {
@@ -197,16 +135,53 @@ export const usePacketCapture = (enabled: boolean = true) => {
           bytes: 0,
           topPorts: [],
           lastSeen: Date.now() / 1000,
+          packetHistory: [],
         })
       }
     }
 
+    // Generate mock packets (browser-compatible)
+    const generateMockPacket = (): PacketData => {
+      const nodes = getAllNodes()
+      if (nodes.length < 2) return null as any
+
+      const src = nodes[Math.floor(Math.random() * nodes.length)]
+      const dst = nodes[Math.floor(Math.random() * nodes.length)]
+      
+      if (src.id === dst.id) return null as any
+
+      const protocols = ['tcp', 'udp', 'icmp']
+      const protocol = protocols[Math.floor(Math.random() * protocols.length)]
+      const commonPorts = [80, 443, 53, 22, 3389, 8080, 3306, 5432]
+
+      return {
+        src: src.ip,
+        dst: dst.ip,
+        srcPort: protocol !== 'icmp' ? commonPorts[Math.floor(Math.random() * commonPorts.length)] : undefined,
+        dstPort: protocol !== 'icmp' ? commonPorts[Math.floor(Math.random() * commonPorts.length)] : undefined,
+        protocol,
+        size: Math.floor(Math.random() * 1500) + 64,
+        time: Date.now() / 1000,
+      }
+    }
+
+    // Generate packets at a realistic rate
+    intervalRef.current = setInterval(() => {
+      // Generate 5-10 packets per interval
+      const packetCount = Math.floor(Math.random() * 6) + 5
+      for (let i = 0; i < packetCount; i++) {
+        const packet = generateMockPacket()
+        if (packet) {
+          processPacket(packet)
+        }
+      }
+    }, 200) // Every 200ms = ~25-50 packets/sec
+
     return () => {
-      if (processRef.current) {
-        processRef.current.kill()
-        processRef.current = null
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
       }
     }
   }, [enabled, addNode, addLink, updateNode, updateLink, getAllNodes])
 }
-

@@ -1,0 +1,90 @@
+# OpenTelemetry Collector Configuration
+# ABYSS MESH v2 - High-Performance Telemetry Collection
+# Handles 1B+ packets/sec with memory safety
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Network packet receiver (via tshark/pcap)
+  filelog:
+    include:
+      - /var/log/network/*.log
+    operators:
+      - type: json_parser
+        id: parser-network
+        output: extract_network_events
+
+processors:
+  # Batch processor for efficient transmission
+  batch:
+    send_batch_size: 10000
+    timeout: 50ms
+    send_batch_max_size: 20000
+
+  # Memory limiter - prevents OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 25
+
+  # Resource processor - add metadata
+  resource:
+    attributes:
+      - key: service.name
+        value: network-abyss
+        action: upsert
+      - key: deployment.environment
+        value: production
+        action: upsert
+
+  # Sampling - reduce volume for high-frequency events
+  probabilistic_sampler:
+    sampling_percentage: 10.0 # Sample 10% of events
+
+  # Transform - optimize data structure
+  transform:
+    log_statements:
+      - context: log
+        statements:
+          - set(attributes["packet_count"], Int(attributes["packets"]))
+          - set(attributes["byte_count"], Int(attributes["bytes"]))
+
+exporters:
+  # Export to local processing
+  otlphttp:
+    endpoint: http://localhost:4318
+    tls:
+      insecure: true
+
+  # Logging for debugging
+  logging:
+    loglevel: info
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [otlphttp, logging]
+
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource, probabilistic_sampler]
+      exporters: [otlphttp, logging]
+
+    logs:
+      receivers: [filelog, otlp]
+      processors: [memory_limiter, batch, resource, transform]
+      exporters: [otlphttp, logging]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+

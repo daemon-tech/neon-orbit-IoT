@@ -8,16 +8,16 @@ export default {
     extend: {
       colors: {
         tech: {
-          bg: '#0a0e27',
-          panel: '#0f172a',
-          border: '#1e293b',
-          primary: '#3b82f6',
+          bg: '#050810',
+          panel: '#0a1410',
+          border: '#1a3a2e',
+          primary: '#4ade80',
           secondary: '#60a5fa',
-          accent: '#10b981',
-          warning: '#f59e0b',
-          error: '#ef4444',
-          text: '#e2e8f0',
-          'text-muted': '#94a3b8',
+          accent: '#4ade80',
+          warning: '#ff6b35',
+          error: '#ff6b35',
+          text: '#d1fae5',
+          'text-muted': '#64748b',
         },
       },
       fontFamily: {

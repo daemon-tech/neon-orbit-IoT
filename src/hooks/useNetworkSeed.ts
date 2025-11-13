@@ -31,6 +31,7 @@ export const useNetworkSeed = () => {
         bytes: 0,
         topPorts: [53, 443],
         lastSeen: Date.now() / 1000,
+        packetHistory: [],
       })
     })
 
@@ -51,6 +52,7 @@ export const useNetworkSeed = () => {
         bytes: Math.floor(Math.random() * 1000000),
         topPorts: [80, 443, 22, 3389, 53].slice(0, Math.floor(Math.random() * 3) + 1),
         lastSeen: Date.now() / 1000,
+        packetHistory: [],
       })
     }
   }, [addNode])

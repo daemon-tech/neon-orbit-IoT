@@ -6,30 +6,33 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "node -e \"const fs=require('fs');const p=require('path');const {execSync}=require('child_process');const rtfPath=p.join('node_modules','@react-three','fiber','package.json');if(fs.existsSync(rtfPath)){const pkg=JSON.parse(fs.readFileSync(rtfPath));pkg.dependencies['react-reconciler']='^0.29.2';pkg.dependencies['scheduler']='^0.23.2';fs.writeFileSync(rtfPath,JSON.stringify(pkg,null,2));try{execSync('npm install react-reconciler@0.29.2 scheduler@0.23.2',{cwd:p.join('node_modules','@react-three','fiber'),stdio:'ignore'});}catch(e){}}const dreiStatsPath=p.join('node_modules','@react-three','drei','core','Stats.js');if(fs.existsSync(dreiStatsPath)){let content=fs.readFileSync(dreiStatsPath,'utf-8');if(content.includes('import StatsImpl from')&&!content.includes('Patched:')){const patch='// Patched: Load stats.js UMD module directly\\nlet StatsImpl=null;\\nif(typeof window!==\\'undefined\\'){\\n  if(window.Stats){StatsImpl=window.Stats;}\\n  else{\\n    const script=document.createElement(\\'script\\');\\n    script.src=\\'/node_modules/stats.js/build/stats.min.js\\';\\n    script.type=\\'text/javascript\\';\\n    script.async=false;\\n    document.head.appendChild(script);\\n    setTimeout(()=>{StatsImpl=window.Stats;},0);\\n  }\\n}';content=content.replace(/import StatsImpl from ['\"].*stats.*['\"];/,patch);const useEffectfulStateImport=content.match(/import.*useEffectfulState.*from/);if(useEffectfulStateImport){content=content.replace(/const stats = useEffectfulState\\(\\(\\) => new StatsImpl\\(\\), \\[\\]\\);/,`const stats = useEffectfulState(() => {\\n    if (!StatsImpl && typeof window !== 'undefined' && window.Stats) {\\n      StatsImpl = window.Stats;\\n    }\\n    return StatsImpl ? new StatsImpl() : null;\\n  }, []);`);}fs.writeFileSync(dreiStatsPath,content);}}\""
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "@react-three/drei": "^9.114.3",
     "@react-three/fiber": "^8.15.11",
-    "@react-three/drei": "^9.88.13",
-    "@react-three/postprocessing": "^2.15.11",
-    "three": "^0.158.0",
-    "zustand": "^4.4.7",
-    "framer-motion": "^10.16.16",
-    "gsap": "^3.12.2",
-    "d3-force-3d": "^0.3.1"
+    "@react-three/postprocessing": "^2.16.3",
+    "framer-motion": "^11.11.17",
+    "gsap": "^3.12.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-reconciler": "^0.29.2",
+    "scheduler": "^0.23.2",
+    "stats.js": "^0.17.0",
+    "three": "^0.169.0",
+    "zustand": "^4.5.5"
   },
   "devDependencies": {
-    "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
-    "@types/three": "^0.158.3",
-    "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.32",
-    "tailwindcss": "^3.3.6",
-    "typescript": "^5.3.3",
-    "vite": "^5.0.8"
+    "@rollup/plugin-commonjs": "^29.0.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.169.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
   }
 }
-

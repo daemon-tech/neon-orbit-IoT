@@ -45,6 +45,7 @@ export const useDNSFeed = (enabled: boolean = true) => {
           bytes: 0,
           topPorts: [53],
           lastSeen: Date.now() / 1000,
+          packetHistory: [],
         })
       }
 

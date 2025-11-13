@@ -1,79 +1,43 @@
 import { useRef, useEffect, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
-import { Group, Vector3, BufferGeometry, Float32BufferAttribute, LineBasicMaterial, Line, InstancedMesh, SphereGeometry, MeshStandardMaterial } from 'three'
+import { Group, BufferGeometry, LineBasicMaterial, Line, SphereGeometry, MeshStandardMaterial, QuadraticBezierCurve3 } from 'three'
 import * as THREE from 'three'
-import { useNetworkStore, NetworkNode, NetworkLink } from '../store/networkStore'
-import { forceSimulation, forceManyBody, forceLink, forceCenter } from 'd3-force-3d'
+import { useNetworkStore } from '../store/networkStore'
+import { EARTH_RADIUS, latLngToVector3 } from './Earth'
 
 export const NetworkGraph = () => {
   const groupRef = useRef<Group>(null)
   const { nodes, links, getAllNodes, getAllLinks, setSelectedNode } = useNetworkStore()
-  const simulationRef = useRef<any>(null)
   const nodeMeshesRef = useRef<Map<string, THREE.Mesh>>(new Map())
   const linkLinesRef = useRef<Map<string, Line>>(new Map())
 
   const nodeArray = useMemo(() => getAllNodes(), [nodes])
   const linkArray = useMemo(() => getAllLinks(), [links])
 
+  // Update node positions on Earth surface when nodes change
   useEffect(() => {
-    if (nodeArray.length === 0) return
-
-    // Initialize D3 force simulation
-    const simulation = forceSimulation(nodeArray as any)
-      .force('charge', forceManyBody().strength(-120))
-      .force('link', forceLink(linkArray as any).id((d: any) => d.id).distance(30))
-      .force('center', forceCenter(0, 0, 0))
-      .alphaTarget(0.3)
-      .restart()
-
-    simulationRef.current = simulation
-
-    // Update positions on each tick
-    simulation.on('tick', () => {
-      nodeArray.forEach((node) => {
-        if (node.x !== undefined && node.y !== undefined && node.z !== undefined) {
-          const mesh = nodeMeshesRef.current.get(node.id)
-          if (mesh) {
-            mesh.position.set(node.x, node.y, node.z)
-          }
-        }
-      })
-
-      linkArray.forEach((link) => {
-        const line = linkLinesRef.current.get(link.id)
-        if (line) {
-          const source = nodeArray.find((n) => n.id === link.source)
-          const target = nodeArray.find((n) => n.id === link.target)
-          if (source && target && source.x !== undefined && target.x !== undefined) {
-            const positions = line.geometry.attributes.position
-            positions.setXYZ(0, source.x, source.y || 0, source.z || 0)
-            positions.setXYZ(1, target.x, target.y || 0, target.z || 0)
-            positions.needsUpdate = true
-          }
-        }
-      })
+    nodeArray.forEach((node) => {
+      const mesh = nodeMeshesRef.current.get(node.id)
+      if (mesh) {
+        const [x, y, z] = latLngToVector3(node.lat, node.lng, EARTH_RADIUS + 0.05)
+        mesh.position.set(x, y, z)
+      }
     })
+  }, [nodeArray])
 
-    return () => {
-      simulation.stop()
-    }
-  }, [nodeArray.length, linkArray.length])
-
-  useFrame(() => {
-    if (simulationRef.current) {
-      simulationRef.current.tick()
-    }
-  })
-
-  // Create node meshes
+  // Create node meshes positioned on Earth surface
   const nodeMeshes = useMemo(() => {
     return nodeArray.map((node) => {
-      const size = Math.log2(node.packets + 1) * 0.01 + 0.02
-      const color = node.threatScore
-        ? new THREE.Color(0xef4444) // Red for threats
+      const size = Math.log2(node.packets + 1) * 0.015 + 0.03
+      
+      // Military-grade color scheme
+      const color = node.threatInfo
+        ? new THREE.Color(0xff6b35) // Amber/red for threats (military warning)
         : node.asn
-        ? new THREE.Color(0x3b82f6) // Blue for ASNs
-        : new THREE.Color(0x10b981) // Green for regular nodes
+        ? new THREE.Color(0x4ade80) // Tactical green for ASNs
+        : new THREE.Color(0x60a5fa) // Blue-gray for regular nodes
+
+      // Position on Earth surface based on lat/lng
+      const [x, y, z] = latLngToVector3(node.lat, node.lng, EARTH_RADIUS + 0.05)
 
       return (
         <mesh
@@ -81,7 +45,7 @@ export const NetworkGraph = () => {
           ref={(ref) => {
             if (ref) nodeMeshesRef.current.set(node.id, ref)
           }}
-          position={[node.x || 0, node.y || 0, node.z || 0]}
+          position={[x, y, z]}
           onClick={(e) => {
             e.stopPropagation()
             setSelectedNode(node.id)
@@ -94,20 +58,20 @@ export const NetworkGraph = () => {
             document.body.style.cursor = 'default'
           }}
         >
-          <sphereGeometry args={[size, 16, 16]} />
+          <sphereGeometry args={[size, 12, 12]} />
           <meshStandardMaterial
             color={color}
             emissive={color}
-            emissiveIntensity={node.threatScore ? 0.8 : 0.2}
-            metalness={0.5}
-            roughness={0.3}
+            emissiveIntensity={node.threatInfo ? 0.6 : 0.15}
+            metalness={0.7}
+            roughness={0.2}
           />
         </mesh>
       )
     })
   }, [nodeArray, setSelectedNode])
 
-  // Create link lines
+  // Create link lines (curved arcs on Earth surface)
   const linkLines = useMemo(() => {
     return linkArray.map((link) => {
       const source = nodeArray.find((n) => n.id === link.source)
@@ -115,24 +79,41 @@ export const NetworkGraph = () => {
 
       if (!source || !target) return null
 
-      const geometry = new BufferGeometry()
-      const positions = new Float32BufferAttribute(
-        [
-          source.x || 0,
-          source.y || 0,
-          source.z || 0,
-          target.x || 0,
-          target.y || 0,
-          target.z || 0,
-        ],
-        3
+      // Get positions on Earth surface
+      const [sx, sy, sz] = latLngToVector3(source.lat, source.lng, EARTH_RADIUS + 0.05)
+      const [tx, ty, tz] = latLngToVector3(target.lat, target.lng, EARTH_RADIUS + 0.05)
+
+      // Create curved arc for better visualization
+      const midPoint = new THREE.Vector3(
+        (sx + tx) / 2,
+        (sy + ty) / 2,
+        (sz + tz) / 2
       )
-      geometry.setAttribute('position', positions)
+      const arcHeight = 0.3
+      midPoint.normalize().multiplyScalar(EARTH_RADIUS + 0.05 + arcHeight)
+
+      // Create curve with multiple points
+      const curve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(sx, sy, sz),
+        new THREE.Vector3(midPoint.x, midPoint.y, midPoint.z),
+        new THREE.Vector3(tx, ty, tz)
+      )
+
+      const points = curve.getPoints(20)
+      const geometry = new BufferGeometry().setFromPoints(points)
+
+      // Military-grade link colors
+      const linkColor = link.protocol === 'bgp'
+        ? 0x4ade80 // Green for BGP
+        : link.protocol === 'dns'
+        ? 0x60a5fa // Blue for DNS
+        : 0x64748b // Gray for regular links
 
       const material = new LineBasicMaterial({
-        color: 0x3b82f6,
+        color: linkColor,
         transparent: true,
-        opacity: 0.3,
+        opacity: 0.4,
+        linewidth: 1,
       })
 
       return (
@@ -155,4 +136,3 @@ export const NetworkGraph = () => {
     </group>
   )
 }
-

@@ -1,5 +1,14 @@
 import { create } from 'zustand'
 
+export interface ThreatInfo {
+  score: number
+  type: 'malware' | 'spam' | 'abuse' | 'phishing' | 'botnet' | 'scanning'
+  firstSeen: number
+  lastSeen: number
+  reports: number
+  description?: string
+}
+
 export interface NetworkNode {
   id: string // IP address
   ip: string
@@ -11,8 +20,9 @@ export interface NetworkNode {
   packets: number
   bytes: number
   topPorts: number[]
-  threatScore?: number
+  threatInfo?: ThreatInfo
   lastSeen: number
+  packetHistory: Array<{ time: number; count: number }>
   x?: number
   y?: number
   z?: number
@@ -41,7 +51,8 @@ interface NetworkStore {
   addLink: (link: NetworkLink) => void
   updateLink: (id: string, updates: Partial<NetworkLink>) => void
   setSelectedNode: (id: string | null) => void
-  markThreat: (id: string, score: number) => void
+  markThreat: (id: string, threatInfo: ThreatInfo) => void
+  getThreatNodes: () => NetworkNode[]
   getNode: (id: string) => NetworkNode | undefined
   getAllNodes: () => NetworkNode[]
   getAllLinks: () => NetworkLink[]
@@ -57,7 +68,11 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
   addNode: (node) => {
     set((state) => {
       const newNodes = new Map(state.nodes)
-      newNodes.set(node.id, node)
+      const nodeWithHistory = {
+        ...node,
+        packetHistory: node.packetHistory || [],
+      }
+      newNodes.set(node.id, nodeWithHistory)
       return { nodes: newNodes }
     })
   },
@@ -94,17 +109,21 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
   
   setSelectedNode: (id) => set({ selectedNode: id }),
   
-  markThreat: (id, score) => {
+  markThreat: (id, threatInfo) => {
     set((state) => {
       const newNodes = new Map(state.nodes)
       const existing = newNodes.get(id)
       if (existing) {
-        newNodes.set(id, { ...existing, threatScore: score })
+        newNodes.set(id, { ...existing, threatInfo })
       }
       const newThreats = new Set(state.threatNodes)
       newThreats.add(id)
       return { nodes: newNodes, threatNodes: newThreats }
     })
+  },
+  
+  getThreatNodes: () => {
+    return Array.from(get().nodes.values()).filter((n) => n.threatInfo)
   },
   
   getNode: (id) => get().nodes.get(id),

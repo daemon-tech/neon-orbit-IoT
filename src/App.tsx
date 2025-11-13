@@ -2,36 +2,46 @@ import { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
-import { NetworkGraph } from './components/NetworkGraph'
+import { CommandSphere } from './components/CommandSphere'
+import { Earth } from './components/Earth'
 import { NodeInspector } from './components/NodeInspector'
 import { LiveStats } from './components/LiveStats'
 import { ThreatMap } from './components/ThreatMap'
+import { ThreatFeed } from './components/ThreatFeed'
+import { DataFeed } from './components/DataFeed'
 import { usePacketCapture } from './hooks/usePacketCapture'
 import { useBGPStream } from './hooks/useBGPStream'
 import { useDNSFeed } from './hooks/useDNSFeed'
 import { useNetworkSeed } from './hooks/useNetworkSeed'
+import { useAbyssMesh } from './hooks/useAbyssMesh'
 import { useNetworkStore } from './store/networkStore'
 
 function Scene() {
   return (
     <>
-      <Stars radius={500} depth={50} count={1000} factor={1} fade speed={0.3} />
+      <Stars radius={1000} depth={100} count={2000} factor={2} fade speed={0.2} />
       
-      <ambientLight intensity={0.3} />
-      <directionalLight position={[10, 10, 10]} intensity={0.8} color="#ffffff" />
-      <directionalLight position={[-10, -10, -10]} intensity={0.3} color="#3b82f6" />
+      {/* Military-grade lighting - dark and tactical */}
+      <ambientLight intensity={0.15} color="#0a1a15" />
+      <directionalLight position={[10, 10, 10]} intensity={0.4} color="#2d4a3e" />
+      <directionalLight position={[-10, -10, -10]} intensity={0.2} color="#1a3a2e" />
+      <pointLight position={[0, 0, 10]} intensity={0.3} color="#4ade80" distance={20} />
 
-      <NetworkGraph />
+      {/* Earth with network visualization - ABYSS MESH v2 */}
+      <Earth />
+      <CommandSphere />
       
       <EffectComposer>
-        <Bloom intensity={0.3} luminanceThreshold={0.95} />
+        <Bloom intensity={0.2} luminanceThreshold={0.98} />
       </EffectComposer>
 
       <OrbitControls
         enablePan={true}
-        minDistance={5}
-        maxDistance={50}
+        minDistance={4} // Closer zoom
+        maxDistance={8} // Closer max distance
         autoRotate={false}
+        enableDamping={true}
+        dampingFactor={0.05}
       />
     </>
   )
@@ -41,7 +51,10 @@ function App() {
   // Initialize network
   useNetworkSeed()
 
-  // Start data feeds
+  // ABYSS MESH v2 - High-performance telemetry processing
+  const { addEvent: addTelemetryEvent } = useAbyssMesh(true)
+
+  // Start data feeds (legacy - can be migrated to useAbyssMesh)
   usePacketCapture(true)
   useBGPStream(true)
   useDNSFeed(true)
@@ -49,7 +62,7 @@ function App() {
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-tech-bg">
       <Canvas
-        camera={{ position: [0, 0, 20], fov: 50 }}
+        camera={{ position: [0, 0, 6], fov: 75 }}
         gl={{ antialias: true, alpha: true }}
       >
         <Suspense fallback={null}>
@@ -58,25 +71,38 @@ function App() {
       </Canvas>
 
       <ThreatMap />
+      <ThreatFeed />
+      <DataFeed />
       <NodeInspector />
       <LiveStats />
 
-      {/* Top Bar - Network Info */}
+      {/* Top Bar - Military Command Interface */}
       <div className="fixed top-0 left-0 right-0 z-50 glass-panel border-b border-tech-border">
-        <div className="px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="px-6 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-tech-accent rounded-full animate-pulse" />
-              <span className="text-xs text-tech-text-muted uppercase tracking-wide">
-                Network Active
+              <div className="w-2 h-2 bg-tech-primary rounded-full animate-pulse" />
+              <span className="text-xs text-tech-text uppercase tracking-widest font-mono">
+                NETWORK ABYSS
               </span>
             </div>
-            <div className="text-xs text-tech-text-muted">
+            <div className="h-4 w-px bg-tech-border" />
+            <div className="text-xs text-tech-text-muted font-mono">
               {new Date().toLocaleTimeString('en-US', { hour12: false })}
             </div>
+            <div className="h-4 w-px bg-tech-border" />
+            <div className="text-xs text-tech-text-muted font-mono">
+              STATUS: <span className="text-tech-primary">OPERATIONAL</span>
+            </div>
           </div>
-          <div className="text-xs text-tech-text-muted font-mono">
-            Protocol: TCP/UDP/ICMP | BGP | DNS
+          <div className="flex items-center gap-4">
+            <div className="text-xs text-tech-text-muted font-mono">
+              PROTOCOL: TCP/UDP/ICMP | BGP | DNS
+            </div>
+            <div className="h-4 w-px bg-tech-border" />
+            <div className="text-xs text-tech-text-muted font-mono">
+              CLASSIFICATION: <span className="text-tech-warning">RESTRICTED</span>
+            </div>
           </div>
         </div>
       </div>

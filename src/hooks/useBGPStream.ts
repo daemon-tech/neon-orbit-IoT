@@ -41,6 +41,7 @@ export const useBGPStream = (enabled: boolean = true) => {
                 bytes: 0,
                 topPorts: [],
                 lastSeen: Date.now() / 1000,
+                packetHistory: [],
               })
             }
           })

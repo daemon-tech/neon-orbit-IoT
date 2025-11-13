@@ -21,7 +21,7 @@ export const LiveStats = () => {
         totalLinks: links.length,
         totalPackets: nodes.reduce((sum, n) => sum + n.packets, 0),
         totalBytes: nodes.reduce((sum, n) => sum + n.bytes, 0),
-        threatCount: nodes.filter((n) => n.threatScore).length,
+        threatCount: nodes.filter((n) => n.threatInfo).length,
       })
     }
 
