@@ -2,16 +2,19 @@ import { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
-import { CommandSphere } from './components/CommandSphere'
-import { Earth } from './components/Earth'
+// Network visualization components removed for performance
+// import { CommandSphere } from './components/CommandSphere'
+// import { NetworkTrafficGlobe } from './components/NetworkTrafficGlobe'
 import { NodeInspector } from './components/NodeInspector'
 import { LiveStats } from './components/LiveStats'
+import { TrafficLeaderboard } from './components/TrafficLeaderboard'
 import { ThreatMap } from './components/ThreatMap'
 import { ThreatFeed } from './components/ThreatFeed'
 import { DataFeed } from './components/DataFeed'
 import { ASViewToggle } from './components/ASViewToggle'
 import { CommandPanel } from './components/CommandPanel'
 import { TabSystem } from './components/TabSystem'
+import { SearchBar } from './components/SearchBar'
 import { useTabStore } from './store/tabStore'
 import { usePacketCapture } from './hooks/usePacketCapture'
 import { useBGPStream } from './hooks/useBGPStream'
@@ -24,15 +27,15 @@ function Scene() {
     <>
       <Stars radius={1000} depth={100} count={2000} factor={2} fade speed={0.2} />
       
-      {/* Military-grade lighting - dark and tactical */}
-      <ambientLight intensity={0.15} color="#0a1a15" />
-      <directionalLight position={[10, 10, 10]} intensity={0.4} color="#2d4a3e" />
-      <directionalLight position={[-10, -10, -10]} intensity={0.2} color="#1a3a2e" />
-      <pointLight position={[0, 0, 10]} intensity={0.3} color="#4ade80" distance={20} />
+          {/* Realistic Earth lighting - simulates sunlight */}
+          <ambientLight intensity={0.3} color="#ffffff" />
+          <directionalLight position={[10, 5, 5]} intensity={1.2} color="#ffffff" castShadow />
+          <directionalLight position={[-5, -2, -5]} intensity={0.3} color="#87ceeb" />
+          <pointLight position={[0, 0, 10]} intensity={0.4} color="#ffffff" distance={20} />
 
-      {/* Earth with network visualization - ABYSS MESH v2 */}
-      <Earth />
-      <CommandSphere />
+      {/* Network visualization - ABYSS MESH v2 (visualization disabled for performance) */}
+      {/* <NetworkTrafficGlobe /> */}
+      {/* <CommandSphere /> */}
       
       <EffectComposer>
         <Bloom intensity={0.2} luminanceThreshold={0.98} />
@@ -77,6 +80,7 @@ function App() {
       </Canvas>
 
       <CommandPanel />
+      <TrafficLeaderboard />
       <ThreatMap />
       <ThreatFeed />
       <DataFeed />
@@ -111,6 +115,8 @@ function App() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <SearchBar />
+            <div className="h-4 w-px bg-tech-border" />
             <ASViewToggle />
             <div className="h-4 w-px bg-tech-border" />
             <div className="text-xs text-tech-text-muted font-mono">

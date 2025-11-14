@@ -8,7 +8,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { InstancedMesh, BufferGeometry, Float32BufferAttribute, SphereGeometry, MeshStandardMaterial, Object3D, Frustum, Matrix4, Vector3 } from 'three'
 import * as THREE from 'three'
 import { useNetworkStore } from '../store/networkStore'
-import { EARTH_RADIUS, latLngToVector3 } from './Earth'
+import { EARTH_RADIUS, latLngToVector3 } from '../lib/geo/coordinates'
 
 const MAX_INSTANCES = 10000 // Reduced from 500000 for performance
 const LOD_DISTANCE = 5 // Distance threshold for LOD

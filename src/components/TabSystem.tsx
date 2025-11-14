@@ -22,12 +22,14 @@ interface TabSystemProps {
 }
 
 export const TabSystem = ({ tabs, activeTabId, onTabChange, onTabClose }: TabSystemProps) => {
-  if (tabs.length === 0) return null
+  // Always show monitor screen if there's an active tab
+  const shouldShowScreen = activeTabId !== null && tabs.length > 0
 
   return (
     <>
       {/* Screen Navigation - Floating at bottom */}
-      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-[10000]">
+      {shouldShowScreen && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-[10000]">
         <div className="bg-tech-panel border border-tech-border px-4 py-2 flex items-center gap-3">
           <div className="text-xs font-mono text-tech-text-muted uppercase tracking-wider">
             SCREENS:
@@ -64,10 +66,11 @@ export const TabSystem = ({ tabs, activeTabId, onTabChange, onTabClose }: TabSys
           )}
         </div>
       </div>
+      )}
 
-      {/* Floating Monitor Screen */}
+      {/* Floating Monitor Screen - Always on top when active */}
       <AnimatePresence>
-        {activeTabId && (
+        {shouldShowScreen && activeTabId && (
           <motion.div
             key={activeTabId}
             initial={{ opacity: 0, scale: 0.9, y: 50 }}

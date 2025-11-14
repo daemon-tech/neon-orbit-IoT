@@ -15,6 +15,7 @@ export interface ASNData {
   tier: 1 | 2 | 3 // Network tier
   peers: number[] // ASN peers
   customers: number[] // ASN customers
+  providers?: number[] // ASN providers
   threats: number // Threat score 0-100
 }
 

@@ -46,7 +46,7 @@ export const CommandPanel = () => {
       id: 'local-network',
       title: 'LOCAL NETWORK MESH',
       type: 'local',
-      content: <LocalNetworkTab ipRange={ipRange.slice(0, 254)} />,
+      content: <LocalNetworkTab ipRange={ipRange.slice(0, 100)} />,
     })
   }
 
@@ -194,6 +194,22 @@ export const CommandPanel = () => {
                 LOCAL NET
               </button>
             </div>
+          </div>
+
+          {/* Leaderboard Toggle */}
+          <div className="pt-2 border-t border-tech-border">
+            <div className="text-xs font-mono text-tech-text-muted uppercase tracking-wider mb-2">
+              ANALYTICS
+            </div>
+            <button
+              onClick={() => {
+                const event = new CustomEvent('toggle-leaderboard')
+                window.dispatchEvent(event)
+              }}
+              className="w-full px-3 py-2 text-xs font-mono bg-tech-panel border border-tech-secondary text-tech-secondary hover:bg-tech-secondary hover:text-tech-bg transition-colors"
+            >
+              TRAFFIC LEADERBOARD
+            </button>
           </div>
 
           {/* Live Feeds */}

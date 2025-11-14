@@ -1,87 +1,100 @@
-import { useState, useRef, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { useCameraControls } from '../hooks/useGlobeCamera'
-import { useSensorStore } from '../store/sensorStore'
+/**
+ * TOTAL OBSERVATION SEARCH
+ * Search for IP, ASN, hostname, or domain - get complete analysis
+ */
+
+import { useState, KeyboardEvent } from 'react'
+import { useTabStore } from '../store/tabStore'
+import { TotalObservationTab } from './tabs/TotalObservationTab'
 
 export const SearchBar = () => {
-  const [query, setQuery] = useState('')
-  const [isFocused, setIsFocused] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const { flyTo, flyToByName } = useCameraControls()
-  const { getAllSensors, setSelectedSensor } = useSensorStore()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+  const { addTab } = useTabStore()
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFocused) {
-        setIsFocused(false)
-        inputRef.current?.blur()
-      }
+  const detectSearchType = (query: string): 'ip' | 'asn' | 'hostname' | 'domain' | 'cidr' => {
+    const trimmed = query.trim()
+    
+    // ASN format: AS12345 or ASN:12345
+    if (/^ASN?:?\d+$/i.test(trimmed)) {
+      return 'asn'
     }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isFocused])
-
-  const handleSearch = (value: string) => {
-    setQuery(value)
-
-    // Try location name first
-    const lowerValue = value.toLowerCase()
-    if (['tokyo', 'sahara', 'newyork', 'london', 'sydney'].includes(lowerValue)) {
-      flyToByName(lowerValue)
-      return
+    
+    // CIDR format: 192.168.1.0/24
+    if (/^\d+\.\d+\.\d+\.\d+\/\d+$/.test(trimmed)) {
+      return 'cidr'
     }
+    
+    // IP address format
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(trimmed)) {
+      return 'ip'
+    }
+    
+    // Domain format (contains dots, no spaces)
+    if (/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/.test(trimmed)) {
+      return 'domain'
+    }
+    
+    // Hostname (contains dots or dashes, no spaces)
+    if (/^[a-zA-Z0-9.-]+$/.test(trimmed)) {
+      return 'hostname'
+    }
+    
+    return 'ip' // Default to IP
+  }
 
-    // Try sensor ID
-    const sensors = getAllSensors()
-    const sensor = sensors.find((s) => s.id.toLowerCase().includes(value.toLowerCase()))
-    if (sensor) {
-      setSelectedSensor(sensor.id)
-      flyTo(sensor.lat, sensor.lng, 2.5)
+  const handleSearch = () => {
+    const query = searchQuery.trim()
+    if (!query) return
+
+    setIsSearching(true)
+    const searchType = detectSearchType(query)
+    
+    // Create total observation tab
+    const tabId = `obs-${Date.now()}`
+    addTab({
+      id: tabId,
+      title: `TOTAL OBSERVATION: ${query.toUpperCase()}`,
+      type: 'scan',
+      content: <TotalObservationTab target={query} searchType={searchType} />,
+      data: { query, searchType },
+    })
+
+    setSearchQuery('')
+    setIsSearching(false)
+  }
+
+  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch()
     }
   }
 
   return (
-    <motion.div
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50"
-    >
+    <div className="flex items-center gap-2">
       <div className="relative">
-        <svg
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 text-tech-text-muted"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.35-4.35" />
-        </svg>
         <input
-          ref={inputRef}
           type="text"
-          value={query}
-          onChange={(e) => handleSearch(e.target.value)}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          placeholder="Search location or sensor ID..."
-          className="glass-panel pl-11 pr-4 py-2.5 w-80 rounded-md text-tech-text bg-transparent border-tech-border focus:outline-none focus:ring-2 focus:ring-tech-primary focus:border-tech-primary text-sm placeholder-tech-text-muted"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder="IP / ASN / Domain / Hostname"
+          className="px-4 py-1.5 w-64 bg-tech-panel border border-tech-border text-tech-text text-xs font-mono focus:border-tech-primary focus:outline-none placeholder:text-tech-text-muted"
+          disabled={isSearching}
         />
-        {isFocused && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute top-full mt-2 left-0 right-0 glass-panel rounded-md p-2 max-h-64 overflow-y-auto"
-          >
-            <div className="text-xs text-tech-text-muted p-2">
-              Search by location (Tokyo, Sahara) or sensor ID (STN-000001)
-            </div>
-          </motion.div>
+        {searchQuery && (
+          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-tech-text-muted font-mono">
+            {detectSearchType(searchQuery).toUpperCase()}
+          </div>
         )}
       </div>
-    </motion.div>
+      <button
+        onClick={handleSearch}
+        disabled={!searchQuery.trim() || isSearching}
+        className="px-4 py-1.5 bg-tech-primary text-tech-bg text-xs font-mono uppercase tracking-wider hover:bg-tech-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isSearching ? 'SCANNING...' : 'OBSERVE'}
+      </button>
+    </div>
   )
 }

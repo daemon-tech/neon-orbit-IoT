@@ -2,7 +2,7 @@ import { useRef, useEffect, useMemo } from 'react'
 import { Group, BufferGeometry, LineBasicMaterial, Line, SphereGeometry, MeshStandardMaterial, QuadraticBezierCurve3 } from 'three'
 import * as THREE from 'three'
 import { useNetworkStore } from '../store/networkStore'
-import { EARTH_RADIUS, latLngToVector3 } from './Earth'
+import { EARTH_RADIUS, latLngToVector3 } from '../lib/geo/coordinates'
 
 export const NetworkGraph = () => {
   const groupRef = useRef<Group>(null)

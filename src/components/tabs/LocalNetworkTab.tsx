@@ -22,39 +22,56 @@ export const LocalNetworkTab = ({ ipRange }: LocalNetworkTabProps) => {
 
   useEffect(() => {
     let mounted = true
+    let scannedDevices: LocalDevice[] = []
 
     scanLocalNetwork(ipRange, (prog, device) => {
       if (!mounted) return
       setProgress(prog)
       if (device) {
+        scannedDevices.push(device)
         setDevices(prev => {
           const updated = [...prev, device]
-          // Add to network store
-          addNode(deviceToNode(device))
-          // Create links between devices
-          if (updated.length > 1) {
-            const prevDevice = updated[updated.length - 2]
-            addLink({
-              id: `${prevDevice.ip}-${device.ip}`,
-              source: prevDevice.ip,
-              target: device.ip,
-              protocol: 'tcp',
-              bytes: Math.floor(Math.random() * 1000000),
-              packets: Math.floor(Math.random() * 1000),
-              lastSeen: Date.now() / 1000,
-            })
+          // Add to network store only if device is actually alive
+          if (device.isAlive) {
+            addNode(deviceToNode(device))
           }
           return updated
         })
       }
       if (prog >= 100) {
         setScanning(false)
-        updateTab('local-network', { title: `LOCAL NETWORK MESH (${devices.length} devices)` })
+        // Create mesh links only between alive devices (not sequential)
+        const aliveDevices = scannedDevices.filter(d => d.isAlive)
+        // Create links between devices that share common ports (more realistic)
+        for (let i = 0; i < aliveDevices.length; i++) {
+          for (let j = i + 1; j < aliveDevices.length; j++) {
+            const dev1 = aliveDevices[i]
+            const dev2 = aliveDevices[j]
+            // Only link if they share common services or are in same subnet
+            const dev1Ports = new Set(dev1.openPorts.map(p => p.port))
+            const dev2Ports = new Set(dev2.openPorts.map(p => p.port))
+            const commonPorts = [...dev1Ports].filter(p => dev2Ports.has(p))
+            
+            // Link if they share services or randomly (30% chance for mesh)
+            if (commonPorts.length > 0 || Math.random() > 0.7) {
+              addLink({
+                id: `${dev1.ip}-${dev2.ip}-local`,
+                source: dev1.ip,
+                target: dev2.ip,
+                protocol: commonPorts.length > 0 ? 'tcp' : 'udp',
+                bytes: Math.floor(Math.random() * 500000) + 10000,
+                packets: Math.floor(Math.random() * 500) + 10,
+                lastSeen: Date.now() / 1000,
+              })
+            }
+          }
+        }
+        updateTab('local-network', { title: `LOCAL NETWORK MESH (${aliveDevices.length} devices)` })
       }
     })
 
     return () => { mounted = false }
-  }, [])
+  }, [ipRange, addNode, addLink, updateTab])
 
   return (
     <div className="p-6 space-y-4 h-full bg-tech-panel">
@@ -63,7 +80,7 @@ export const LocalNetworkTab = ({ ipRange }: LocalNetworkTabProps) => {
         <div>
           <h3 className="text-sm font-mono uppercase text-tech-text">LOCAL NETWORK MESH</h3>
           <div className="text-xs text-tech-text-muted mt-1">
-            {devices.length} devices found {scanning && `(${progress.toFixed(1)}%)`}
+            {devices.filter(d => d.isAlive).length} devices found {scanning && `(${progress.toFixed(1)}%)`}
           </div>
         </div>
         <button
@@ -85,11 +102,14 @@ export const LocalNetworkTab = ({ ipRange }: LocalNetworkTabProps) => {
       <div className="grid grid-cols-2 gap-4" style={{ height: 'calc(100% - 100px)' }}>
         {/* Device List */}
         <div className="overflow-y-auto border border-tech-border bg-tech-panel">
-          <div className="p-2 text-xs font-mono uppercase text-tech-text-muted border-b border-tech-border">
-            DEVICES ({devices.length})
+          <div className="p-2 text-xs font-mono uppercase text-tech-text-muted border-b border-tech-border flex items-center justify-between">
+            <span>DEVICES ({devices.filter(d => d.isAlive).length} alive)</span>
+            {scanning && (
+              <span className="text-tech-primary animate-pulse">SCANNING...</span>
+            )}
           </div>
           <div className="divide-y divide-tech-border">
-            {devices.map((device) => (
+            {devices.filter(d => d.isAlive).map((device) => (
               <div
                 key={device.ip}
                 onClick={() => setSelectedDevice(device)}

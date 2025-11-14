@@ -93,13 +93,17 @@ export async function scanLocalNetwork(
   const devices: LocalDevice[] = []
   const total = ipRange.length
 
-  for (let i = 0; i < ipRange.length; i++) {
-    const ip = ipRange[i]
+  // Limit scan to reasonable number of IPs (max 50 devices for performance)
+  const maxDevices = 50
+  const scanRange = ipRange.slice(0, Math.min(ipRange.length, maxDevices * 2)) // Scan 2x to get ~50 alive
+  
+  for (let i = 0; i < scanRange.length && devices.length < maxDevices; i++) {
+    const ip = scanRange[i]
     
-    // Simulate ping (70% alive rate for demo)
-    const isAlive = Math.random() > 0.3
+    // Simulate ping (30% alive rate - more realistic for local network)
+    const isAlive = Math.random() > 0.7
     if (!isAlive) {
-      onProgress?.(((i + 1) / total) * 100)
+      onProgress?.(((i + 1) / scanRange.length) * 100)
       continue
     }
 
